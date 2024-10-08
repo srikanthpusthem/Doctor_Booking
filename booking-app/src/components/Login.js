@@ -72,17 +72,18 @@ const Login = () => {
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post('http://localhost:5000/api/users/login', {
+      const response = await axios.post('http://localhost:5001/api/users/login', {
         email,
         password,
       });
       console.log('Login successful:', response.data);
-      // Save the token and navigate
+      
       localStorage.setItem('token', response.data.token);
-      navigate('/dashboard'); // Navigate to a protected route
+      navigate('/homepage'); // Navigate to a protected route
     } catch (error) {
       console.error('Error logging in:', error);
     }
+    
   };
 
   return (

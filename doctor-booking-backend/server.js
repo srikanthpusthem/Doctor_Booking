@@ -7,7 +7,7 @@ const jwt = require('jsonwebtoken');
 
 dotenv.config();
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 
 // Middleware
 app.use(cors());
@@ -18,78 +18,57 @@ mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('MongoDB connected successfully'))
   .catch(err => console.error('MongoDB connection error:', err));
 
-// Import Models
+// Import User, Specialty, and Doctor Models
 const User = require('./models/User');
+const Specialty = require('./models/Specialty');
 const Doctor = require('./models/Doctor');
 
-// User Registration Route
-app.post('/api/users/register', async (req, res) => {
-  try {
-    const { name, email, password } = req.body;
-
-    // Check if the user already exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ message: 'User already exists' });
-    }
-
-    // Hash the password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Create a new user
-    const user = new User({
-      name,
-      email,
-      password: hashedPassword,
-    });
-
-    await user.save();
-    res.status(201).json({ message: 'User created successfully!' });
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
-});
-
-// User Login Route
+// Login Route
 app.post('/api/users/login', async (req, res) => {
+  const { email, password } = req.body;
   try {
-    const { email, password } = req.body;
-
-    // Find the user by email
+    // Check if user exists
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(400).json({ message: 'Invalid credentials' });
+      return res.status(400).json({ error: 'User not found' });
     }
 
-    // Compare passwords
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      return res.status(400).json({ message: 'Invalid credentials' });
+    // Compare password
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ error: 'Invalid password' });
     }
 
     // Generate JWT token
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-
-    res.json({ token });
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    res.status(200).json({ token });
   } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+    console.error('Login error:', error);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
-// Doctor Registration Route
-app.post('/api/doctors', async (req, res) => {
+// Fetch Specialties
+app.get('/api/specialties', async (req, res) => {
   try {
-    const doctor = new Doctor(req.body);
-    await doctor.save();
-    res.status(201).json(doctor);
+    const specialties = await Specialty.find();
+    res.json(specialties);
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error('Error fetching specialties:', error);
+    res.status(500).json({ error: 'Error fetching specialties' });
   }
 });
 
-// Basic API Route for testing the server
-app.get('/', (req, res) => {
-  res.send('Doctor Booking API is running');
+// Fetch Doctors by Specialty
+app.get('/api/doctors', async (req, res) => {
+  try {
+    const { specialty } = req.query;
+    const doctors = await Doctor.find({ specialty });
+    res.json(doctors);
+  } catch (error) {
+    console.error('Error fetching doctors:', error);
+    res.status(500).json({ error: 'Error fetching doctors' });
+  }
 });
 
 // Start the server
